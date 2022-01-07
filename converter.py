@@ -2,7 +2,10 @@ import glob
 import os
 import math as m
 import sys
+import numpy as np
+from scipy.spatial.transform import Rotation as R
 
+SS = "\\"
 ROOT_FOLDER = "results\\uid-*"
 INNER_FOLDER = "\\test0\\"
 HEADS = "heads"
@@ -15,76 +18,56 @@ try:
 	os.makedirs(HEADS)
 except:
 	print("heads folder is exist. Dont forget to create a backup")
+	sys.exit(0)
 
 
-# sys.exit(0)
+class Quaternion:
+	def __init__(self, line):
+		self.q = [line[2], line[3], line[4], line[1]]
+		self.x = line[2]
+		self.y = line[3]
+		self.z = line[4]
+		self.w = line[1]
 
-def q_conjugate(q):
-	w, x, y, z = q
-	return w, -x, -y, -z
+	def to_rotation(self):
+		return R.from_quat(self.q)
 
-
-def qv_mult(q1, v1):
-	q2 = (0.0,) + v1
-	return q_mult(q_mult(q1, q2), q_conjugate(q1))[1:]
-
-
-def q_mult(q1, q2):
-	w1, x1, y1, z1 = q1
-	w2, x2, y2, z2 = q2
-	w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
-	x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
-	y = w1 * y2 + y1 * w2 + z1 * x2 - x1 * z2
-	z = w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2
-	return w, x, y, z
+	def to_euler(self):
+		angles = self.to_rotation().as_euler("ZYX", degrees=True)
+		return [round(elem, 2) for elem in angles]
 
 
-def quaternion_to_euler(w, x, y, z):
-	t0 = 2 * (w * x + y * z)
-	t1 = 1 - 2 * (x * x + y * y)
-	X = m.atan2(t0, t1)
+def get_quaternion_from_euler(roll, pitch, yaw):
+	# https://automaticaddison.com/how-to-convert-euler-angles-to-quaternions-using-python/
+	qx = np.sin(roll / 2) * np.cos(pitch / 2) * np.cos(yaw / 2) - np.cos(roll / 2) * np.sin(pitch / 2) * np.sin(yaw / 2)
+	qy = np.cos(roll / 2) * np.sin(pitch / 2) * np.cos(yaw / 2) + np.sin(roll / 2) * np.cos(pitch / 2) * np.sin(yaw / 2)
+	qz = np.cos(roll / 2) * np.cos(pitch / 2) * np.sin(yaw / 2) - np.sin(roll / 2) * np.sin(pitch / 2) * np.cos(yaw / 2)
+	qw = np.cos(roll / 2) * np.cos(pitch / 2) * np.cos(yaw / 2) + np.sin(roll / 2) * np.sin(pitch / 2) * np.sin(yaw / 2)
 
-	t2 = 2 * (w * y - z * x)
-	t2 = 1 if t2 > 1 else t2
-	t2 = -1 if t2 < -1 else t2
-	Y = m.asin(t2)
-
-	t3 = 2 * (w * z + x * y)
-	t4 = 1 - 2 * (y * y + z * z)
-	Z = m.atan2(t3, t4)
-
-	return X * 180 / m.pi, Y * 90 / m.pi, Z * 180 / m.pi
-
-
-def quaternion_to_euler2(w, x, y, z):
-	yaw = m.atan2(2.0 * (y * z + w * x), w * w - x * x - y * y + z * z)
-	pitch = m.asin(-2.0 * (x * z - w * y))
-	roll = m.atan2(2.0 * (x * y + w * z), w * w + x * x - y * y - z * z)
-
-	return yaw * 180 / m.pi, pitch * 90 / m.pi, roll * 180 / m.pi
+	return [qx, qy, qz, qw]
 
 
 # for each user folder
 for i in range(len(folders)):
-	folder = folders[i]
-	uid = folder.split('\\')[-1][4:]
+	user_folder_path = folders[i]
+	user_folder = user_folder_path.split(SS)[-1]
 
 	# for each video folder inside a user folder
 	for v_i in range(len(VIDEOS)):
 		video = VIDEOS[v_i]  # Set video
 		video_name = video.split('-')[0]
-		path = folder + INNER_FOLDER + video
+		path = user_folder_path + INNER_FOLDER + video
 		log_file = glob.glob(path)
+		print(log_file)
 		if log_file:
 			with open(log_file[0]) as file:
-				with open(HEADS + "\\head_" + video_name.lower() + "_" + str(i), "w") as extracted:
+				with open(HEADS + SS + video_name.lower() + "_" + str(i), "w") as extracted:
 					lines = file.readlines()
 					for line in lines:
 						line = line.replace('\n', '').split()
-						line[0] = int(float(line[0]) * 1000)  # convert timestamp from seconds to milliseconds
+						pts = int(float(line[0]) * 1000)  # convert timestamp from seconds to milliseconds
 						del line[1]  # clear frame id
-						print(quaternion_to_euler(float(line[1]), float(line[2]), float(line[3]), float(line[4])))
-						# line[1:] = quaternion_to_euler2(float(line[1]), float(line[2]), float(line[3]), float(line[4]))
-						print(quaternion_to_euler2(float(line[1]), float(line[2]), float(line[3]), float(line[4])))
-					# extracted.write(modified_line)
-					sys.exit(1)
+						euler = Quaternion(line).to_euler()
+						modified_line = ' '.join([str(elem) for elem in [pts] + euler]) + "\n"
+						extracted.write(modified_line)
+					# sys.exit(1)
