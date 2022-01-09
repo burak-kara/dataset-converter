@@ -5,6 +5,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 SS = "\\"
+NEW_LINE = "\n"
 ROOT_FOLDER = "results\\uid-*"
 INNER_FOLDER = "\\test0\\"
 HEADS = "heads"
@@ -13,12 +14,18 @@ VIDEOS = ["Diving-2OzlksZBTiA\\*", "Paris-sJxiPiAaB4k\\*", "Rhino-training-7IWp8
 FOLDERS = []
 
 
+# helper math functions
 def sin(xx):
 	return np.sin(xx / 2)
 
 
 def cos(xx):
 	return np.cos(xx / 2)
+
+
+# seconds to ms
+def as_ms(sec):
+	return int(float(sec) * 1000)
 
 
 class Quaternion:
@@ -44,43 +51,53 @@ class Quaternion:
 		return Quaternion([qw, qx, qy, qz])
 
 
+def write_output(video_name, folder_i, file):
+	with open(HEADS + SS + video_name.lower() + "_" + str(folder_i), "w") as extracted:
+		lines = file.readlines()
+		for line in lines:
+			line = line.replace(NEW_LINE, '').split()
+			# convert timestamp from seconds to milliseconds
+			pts = as_ms(line[0])
+			# clear frame id
+			del line[1]
+			euler = Quaternion(line).to_euler()
+			modified_line = ' '.join([str(elem) for elem in [pts] + euler]) + NEW_LINE
+			extracted.write(modified_line)
+
+
+def open_log_file(log_file, video_name, f_i):
+	# Some users did not test all videos
+	if log_file:
+		with open(log_file[0]) as file:
+			write_output(video_name, f_i, file)
+
+
+def process():
+	# for each user folder
+	for f_i in range(len(FOLDERS)):
+		user_folder_path = FOLDERS[f_i]
+
+		# for each video folder inside a user folder
+		for v_i in range(len(VIDEOS)):
+			video = VIDEOS[v_i]
+			video_name = video.split('-')[0]
+			log_file = get_folders(user_folder_path + INNER_FOLDER + video)
+			open_log_file(log_file, video_name, f_i)
+
+
+def get_folders(path):
+	return glob.glob(path)
+
+
 def init():
 	global FOLDERS
-	FOLDERS = glob.glob(ROOT_FOLDER)
+	FOLDERS = get_folders(ROOT_FOLDER)
 
 	try:
 		os.makedirs(HEADS)
 	except:
 		print("heads folder is exist. Dont forget to create a backup")
 		sys.exit(0)
-
-
-def process():
-	# for each user folder
-	for i in range(len(FOLDERS)):
-		user_folder_path = FOLDERS[i]
-
-		# for each video folder inside a user folder
-		for v_i in range(len(VIDEOS)):
-			video = VIDEOS[v_i]
-			video_name = video.split('-')[0]
-			path = user_folder_path + INNER_FOLDER + video
-			log_file = glob.glob(path)
-
-			# Some users did not test all videos
-			if log_file:
-				with open(log_file[0]) as file:
-					with open(HEADS + SS + video_name.lower() + "_" + str(i), "w") as extracted:
-						lines = file.readlines()
-						for line in lines:
-							line = line.replace('\n', '').split()
-							# convert timestamp from seconds to milliseconds
-							pts = int(float(line[0]) * 1000)
-							# clear frame id
-							del line[1]
-							euler = Quaternion(line).to_euler()
-							modified_line = ' '.join([str(elem) for elem in [pts] + euler]) + "\n"
-							extracted.write(modified_line)
 
 
 if __name__ == '__main__':
