@@ -1,5 +1,5 @@
 # From the unit Hamilton Quaternion to Euler Angles Converter
-Convert Head Motions from the Hamilton Quaternion to Euler Angles
+Convert Head Motions from the Hamilton Quaternion to Euler Angles to use in Monitor Sample on https://github.com/nokiatech/omaf
 
 360-Degree Video Head Movement Dataset: https://dl.acm.org/do/10.1145/3193701
 
