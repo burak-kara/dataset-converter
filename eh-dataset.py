@@ -1,11 +1,9 @@
-import glob
 import os
-import sys
 
 SS = "\\"
 NEW_LINE = "\n"
 SRC_FOLDER = "RawData"
-RESULTS_HEAD = "heads"
+RESULTS_HEAD = "eh_heads"
 RESULTS_GAZE = "gaze"
 UNIT = "unit"
 COOR = "coordinate"
